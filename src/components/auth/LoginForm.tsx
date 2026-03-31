@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,53 +18,41 @@ import {
 import { Zap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function RegisterPage() {
+export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-
-      if (password !== confirmPassword) {
-        toast.error("Password tidak cocok");
-        return;
-      }
-
-      if (password.length < 6) {
-        toast.error("Password minimal 6 karakter");
-        return;
-      }
+      if (!email || !password) return;
 
       setIsLoading(true);
       try {
-        const res = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
+        const result = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
         });
 
-        const data = (await res.json()) as { error?: string };
-
-        if (!res.ok) {
-          toast.error(data.error ?? "Gagal mendaftar");
-          return;
+        if (result?.error) {
+          toast.error("Email atau password salah");
+        } else {
+          router.push(callbackUrl);
+          router.refresh();
         }
-
-        toast.success("Akun berhasil dibuat! Silakan login.");
-        router.push("/login");
       } catch {
         toast.error("Terjadi kesalahan, coba lagi");
       } finally {
         setIsLoading(false);
       }
     },
-    [name, email, password, confirmPassword, router]
+    [email, password, callbackUrl, router]
   );
 
   return (
@@ -76,32 +65,15 @@ export default function RegisterPage() {
             </div>
             <span className="text-xl font-bold">WebCraft</span>
           </Link>
-          <p className="text-sm text-muted-foreground">
-            Gratis 1 generate/bulan, tidak perlu kartu kredit
-          </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Buat akun baru</CardTitle>
-            <CardDescription>
-              Mulai generate landing page pertamamu dalam 30 detik
-            </CardDescription>
+            <CardTitle>Selamat datang kembali</CardTitle>
+            <CardDescription>Login ke akun WebCraft kamu</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nama</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Nama kamu"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoComplete="name"
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -119,23 +91,11 @@ export default function RegisterPage() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Minimal 6 karakter"
+                  placeholder="Password kamu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Konfirmasi Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Ulangi password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
+                  autoComplete="current-password"
                 />
               </div>
             </CardContent>
@@ -144,20 +104,29 @@ export default function RegisterPage() {
                 {isLoading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Buat Akun Gratis
+                Login
               </Button>
               <p className="text-center text-sm text-muted-foreground">
-                Sudah punya akun?{" "}
+                Belum punya akun?{" "}
                 <Link
-                  href="/login"
+                  href="/register"
                   className="text-primary hover:underline"
                 >
-                  Login di sini
+                  Daftar gratis
                 </Link>
               </p>
             </CardFooter>
           </form>
         </Card>
+
+        {/* Demo credentials */}
+        <div className="mt-4 rounded-lg border border-border bg-card/50 p-4 text-sm">
+          <p className="mb-2 font-medium text-muted-foreground">Demo Akun:</p>
+          <div className="space-y-1 font-mono text-xs">
+            <p>Admin: admin@webcraft.id / admin123</p>
+            <p>Member: demo@webcraft.id / demo123</p>
+          </div>
+        </div>
       </div>
     </div>
   );
